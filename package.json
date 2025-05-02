@@ -1,12 +1,13 @@
 {
   "name": "chathai",
-  "version": "1.0.6",
+  "version": "1.0.9",
   "bin": {
     "chathai": "./bin/chathai.js"
   },
   "files": [
     "bin",
-    "src"
+    "src",
+    "xlsxtemplate"
   ],
   "description": "chathai is a tool to help u make test script from testcase(xlxs) now can use on cypress",
   "main": "index.js",

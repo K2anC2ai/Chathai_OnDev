@@ -12,6 +12,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 const DEFAULT_TEMPLATE_PATH = 'xlsxtemplate/chathai-templateV.1.0.0.xlsx';
+const SOURCE_TEMPLATE_PATH = path.join(packagePath, 'xlsxtemplate/chathai-templateV.1.0.0.xlsx');
 
 function createTemplateFile(templatePath) {
   const templateDir = path.dirname(templatePath);
@@ -21,21 +22,14 @@ function createTemplateFile(templatePath) {
     fs.mkdirSync(templateDir, { recursive: true });
   }
 
-  // สร้าง workbook ใหม่
-  const wb = XLSX.utils.book_new();
-  
-  // สร้าง sheet สำหรับ test cases
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['Test Case ID', 'Test Case Name', 'Description', 'Steps', 'Expected Result', 'Actual Result', 'Status'],
-    ['TC001', 'Sample Test Case', 'This is a sample test case', '1. Step 1\n2. Step 2', 'Expected result', '', ''],
-  ]);
-
-  // เพิ่ม sheet ลงใน workbook
-  XLSX.utils.book_append_sheet(wb, ws, 'Test Cases');
-
-  // บันทึกไฟล์
-  XLSX.writeFile(wb, templatePath);
-  console.log(`✅ สร้างไฟล์ template สำเร็จ: ${templatePath}`);
+  // คัดลอกไฟล์ template จาก package
+  try {
+    fs.copyFileSync(SOURCE_TEMPLATE_PATH, templatePath);
+    console.log(`✅ สร้างไฟล์ template สำเร็จ: ${templatePath}`);
+  } catch (error) {
+    console.error('❌ ไม่สามารถคัดลอกไฟล์ template ได้:', error.message);
+    process.exit(1);
+  }
 }
 
 if (command === 'generate') {
