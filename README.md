@@ -27,7 +27,7 @@
    - Support for custom Excel file paths
    - Easy to use command-line interface
 
-   ## Usagee
+   ## Usage
 
    ### Basic Usage
    ```bash
