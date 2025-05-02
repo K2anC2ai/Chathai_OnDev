@@ -1,6 +1,6 @@
 {
   "name": "chathai",
-  "version": "1.0.9",
+  "version": "1.0.13",
   "bin": {
     "chathai": "./bin/chathai.js"
   },
