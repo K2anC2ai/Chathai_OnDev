@@ -41,6 +41,6 @@ function generateStepCode({ command, value, chaining, chained }) {
     }
     return `'${val.trim()}'`;
   }
-  
+  //หัวควย
   module.exports = { generateStepCode };
   
