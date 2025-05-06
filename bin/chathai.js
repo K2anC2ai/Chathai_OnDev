@@ -25,9 +25,9 @@ function createTemplateFile(templatePath) {
   // คัดลอกไฟล์ template จาก package
   try {
     fs.copyFileSync(SOURCE_TEMPLATE_PATH, templatePath);
-    console.log(`✅ Create Template File successful: ${templatePath}`);
+    console.log(` Create Template File successful: ${templatePath}`);
   } catch (error) {
-    console.error('❌ Can not create template file:', error.message);
+    console.error(' Can not create template file:', error.message);
     process.exit(1);
   }
 }
