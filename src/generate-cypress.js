@@ -48,7 +48,7 @@ function generateCypressTests(excelPath, outputDir) {
   // Save file
   const outputPath = path.join(dir, 'generated_test.cy.js');
   fs.writeFileSync(outputPath, output, 'utf-8');
-  console.log('✅ สร้าง Cypress test แล้วที่', outputPath);
+  console.log('✅ Complete generate test script', outputPath);
 }
 
 function parseStep(step) {

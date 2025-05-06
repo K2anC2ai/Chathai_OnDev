@@ -25,9 +25,9 @@ function createTemplateFile(templatePath) {
   // คัดลอกไฟล์ template จาก package
   try {
     fs.copyFileSync(SOURCE_TEMPLATE_PATH, templatePath);
-    console.log(`✅ สร้างไฟล์ template สำเร็จ: ${templatePath}`);
+    console.log(` Create Template File successful: ${templatePath}`);
   } catch (error) {
-    console.error('❌ ไม่สามารถคัดลอกไฟล์ template ได้:', error.message);
+    console.error(' Can not create template file:', error.message);
     process.exit(1);
   }
 }
@@ -39,7 +39,7 @@ if (command === 'generate') {
 
   // ตรวจสอบว่าไฟล์ template มีอยู่หรือไม่
   if (!fs.existsSync(excelPath)) {
-    console.log('⚠️ ไม่พบไฟล์ template จะทำการสร้างให้ใหม่');
+    console.log('⚠️ Template file not found, creating new');
     createTemplateFile(excelPath);
   }
 
@@ -47,6 +47,6 @@ if (command === 'generate') {
 } else {
   console.log('Unknown command');
   console.log('\nตัวอย่างการใช้งาน:');
-  console.log('chathai generate                    // ใช้ template เริ่มต้น');
-  console.log('chathai generate myexcel/excel.xlsx // ใช้ไฟล์ Excel ที่ระบุ');
+  console.log('chathai generate');
+  console.log('chathai generate myexcel/excel.xlsx ');
 }
