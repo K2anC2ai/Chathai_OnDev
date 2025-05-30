@@ -1,6 +1,27 @@
-function generateStepCode({ command, value, chaining, chained }) {
+function generateStepCode({ command, value, chaining, chained, only, hook }) {
   let code = '';
   let isChained = false;
+
+  // Handle only and hook modifiers
+  if (only === 'yes') {
+    code += '    it.only';
+  } else if (only === 'skip') {
+    code += '    it.skip';
+  } else if (only === 'none') {
+    code += '    it';
+  }
+
+  if (hook) {
+    if (hook === 'beforeEach') {
+      code += '    cy.beforeEach(() => {\n';
+    } else if (hook === 'afterEach') {
+      code += '    cy.afterEach(() => {\n';
+    } else if (hook === 'before') {
+      code += '    cy.before(() => {\n';
+    } else if (hook === 'after') {
+      code += '    cy.after(() => {\n';
+    }
+  }
 
   const chainableCommands = [
     'type', 'click', 'check', 'uncheck', 'select', 'focus', 'blur', 'clear', 'dblclick',
@@ -40,6 +61,11 @@ function generateStepCode({ command, value, chaining, chained }) {
 
   else {
     code += `    cy.${command}(${formatValue(value)})\n`;
+  }
+
+  // Close hook if present
+  if (hook) {
+    code += '    });\n';
   }
 
   return { code, isChained };
