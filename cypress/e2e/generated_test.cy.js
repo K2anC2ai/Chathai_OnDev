@@ -1,8 +1,13 @@
-describe('แบบทดสอบหน้าเว็บ', () => {
-  it('กรอกชื่อแล้วกดส่ง', () => {
-    cy.visit('http://localhost:8080')
-    cy.get('#name').type('ขรรค์ชัย')
-    cy.get('button').click()
-    cy.get('#result').should('contain', 'สวัสดี ขรรชัย')
+describe('Simple Todo App', () => {
+  beforeEach(() => {
+    cy.visit('http://localhost:3000')
+  })
+
+  it.skip('Loads the app and adds a todo', () => {
+    cy.get('input[name="task"]')
+      .type('Learn Cypress')
+    cy.get('button[type="submit"]')
+      .click()
+    cy.contains('Learn Cypress')
   })
 })

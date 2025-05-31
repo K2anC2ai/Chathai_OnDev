@@ -1,4 +1,4 @@
-function generateStepCode({ command, value, chaining, chained }) {
+function generateStepCode({ command, value, chaining, chained, hook }) {
   let code = '';
   let isChained = false;
 
@@ -16,28 +16,49 @@ function generateStepCode({ command, value, chaining, chained }) {
     'last', 'eq', 'filter', 'not'
   ];
 
+  // Handle hooks
+  if (hook) {
+    if (command === 'visit') {
+      code += `    cy.visit(${formatValue(value)})\n`;
+    } else if (command === 'get') {
+      code += `    cy.get(${formatValue(value)})`;
+      isChained = true;
+    } else if (chained && command === 'should') {
+      code += formatShould(value);
+    } else if (chained && [...chainableCommands, ...traversalCommands].includes(command)) {
+      code += `.${command}(${formatValue(value)})\n`;
+      if (traversalCommands.includes(command)) isChained = true;
+    } else {
+      code += `    cy.${command}(${formatValue(value)})\n`;
+    }
+    return { code, isChained };
+  }
+
+  // Handle regular commands
   if (command === 'visit') {
     code += `    cy.visit(${formatValue(value)})\n`;
   }
-
   else if (command === 'get') {
     code += `    cy.get(${formatValue(value)})`;
     isChained = true;
   }
-
   else if (chained && command === 'should') {
     code += formatShould(value);
   }
-
   else if (chained && [...chainableCommands, ...traversalCommands].includes(command)) {
     code += `.${command}(${formatValue(value)})\n`;
     if (traversalCommands.includes(command)) isChained = true;
   }
-
   else if (chained && ['hover', 'mouseover', 'mouseout', 'debug', 'pause'].includes(command)) {
     code += `.${command}()\n`;
   }
-
+  else if (command === 'contain') {
+    if (chained) {
+      code += `.contains(${formatValue(value)})\n`;
+    } else {
+      code += `    cy.contains(${formatValue(value)})\n`;
+    }
+  }
   else {
     code += `    cy.${command}(${formatValue(value)})\n`;
   }
