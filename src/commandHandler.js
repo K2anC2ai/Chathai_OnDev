@@ -25,8 +25,13 @@ function generateStepCode({ command, value, chaining, chained }) {
     isChained = true;
   }
 
-  else if (chained && command === 'should') {
-    code += formatShould(value);
+  else if (command === 'should') {
+    // Always format should correctly, whether chained or not
+    if (chained) {
+      code += formatShould(value);
+    } else {
+      code += `    cy.should${formatShould(value, true)}`;
+    }
   }
 
   else if (chained && [...chainableCommands, ...traversalCommands].includes(command)) {
@@ -46,20 +51,20 @@ function generateStepCode({ command, value, chaining, chained }) {
 }
 
 // ฟังก์ชันใหม่สำหรับ should
-function formatShould(val) {
-  if (!val) return `.should()\n`;
+function formatShould(val, forceParen = false) {
+  if (!val) return forceParen ? '()\n' : `.should()\n`;
   // แยก assertion กับ args
   const [assertion, ...args] = splitAssertionArgs(val);
   if (args.length === 0) {
-    return `.should('${assertion}')\n`;
+    return forceParen ? `('${assertion}')\n` : `.should('${assertion}')\n`;
   }
-  // Special case: if the only arg is ...args, output without quotes
   if (args.length === 1 && args[0].trim().replace(/^['"]|['"]$/g, '') === '...args') {
-    return `.should('${assertion}', ...args)\n`;
+    return forceParen ? `('${assertion}', ...args)\n` : `.should('${assertion}', ...args)\n`;
   }
-  // ถ้า arg เป็น function, array, object, number, boolean, regex, ไม่ต้องใส่ ''
   const formattedArgs = args.map(formatArg).join(', ');
-  return `.should('${assertion}', ${formattedArgs})\n`;
+  return forceParen
+    ? `('${assertion}', ${formattedArgs})\n`
+    : `.should('${assertion}', ${formattedArgs})\n`;
 }
 
 // แยก assertion กับ args (รองรับ comma ใน object/array/function)
@@ -107,16 +112,20 @@ function formatArg(arg) {
   const trimmed = arg.trim();
   // Special case: ...args (spread)
   if (trimmed === '...args') return '...args';
-  // ถ้าเป็น function, array, object, number, boolean, regex, ไม่ต้องใส่ ''
+  // If it's a function, array, object, number, boolean, regex, don't quote
   if (/^(\[.*\]|\{.*\}|(\(\s*.*\s*\)\s*=>)|\/.*\/[gimsuy]*|true|false|null|undefined|[0-9.]+)$/.test(trimmed)) {
     return trimmed;
   }
-  // ถ้าเป็น string ที่ล้อมด้วย '' หรือ ""
+  // If it's a string already quoted
   if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
       (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
     return trimmed;
   }
-  // อื่นๆ ใส่ ''
+  // If it's a valid JS identifier (variable name), don't quote
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(trimmed)) {
+    return trimmed;
+  }
+  // Otherwise, quote as string
   return `'${trimmed}'`;
 }
 

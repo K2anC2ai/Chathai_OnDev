@@ -1,6 +1,6 @@
 {
   "name": "chathai",
-  "version": "1.0.16",
+  "version": "1.0.18",
   "bin": {
     "chathai": "./bin/chathai.js"
   },
@@ -19,5 +19,22 @@
   "dependencies": {
     "follow-redirects": "^1.15.9",
     "xlsx": "^0.18.5"
-  }
+  },
+  "keywords": [
+    "chathai",
+    "cypress",
+    "test",
+    "excel",
+    "automation",
+    "e2e",
+    "cli",
+    "generator",
+    "testing",
+    "framework"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/K2anC2ai/Chathai_OnDev"
+  },
+  "homepage": "https://docs.chathai.site/"
 }
