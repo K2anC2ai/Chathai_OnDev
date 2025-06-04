@@ -40,6 +40,7 @@ const commands = {
   '-h': require('../src/cli/help'),
   '--version': require('../src/cli/version'),
   '-v': require('../src/cli/version'),
+  '--template-dir': require('../src/cli/template-dir'),
 };
 
 if (commands[command]) {

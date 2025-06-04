@@ -3,8 +3,13 @@ const xlsx = require('xlsx');
 const { generateStepCode } = require('./commandHandler');
 const path = require('path');
 
-function generateCypressTests(excelPath, outputDir) {
-  const dir = path.join(process.cwd(), outputDir);
+function generateCypressTests(excelPath, outputDir, projectDir) {
+  console.log('Chathai CLI: process.cwd() =', process.cwd());
+  console.log('Chathai CLI: outputDir =', outputDir);
+  console.log('Chathai CLI: projectDir =', projectDir);
+
+  // Always resolve outputDir relative to projectDir
+  const dir = path.isAbsolute(outputDir) ? outputDir : path.join(projectDir, outputDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -99,7 +104,9 @@ function generateCypressTests(excelPath, outputDir) {
   }
 
   // Save file
-  const outputPath = path.join(dir, 'generated_test.cy.js');
+  const excelBaseName = path.basename(excelPath, path.extname(excelPath));
+  const outputFileName = `${excelBaseName}.cy.js`;
+  const outputPath = path.join(dir, outputFileName);
   fs.writeFileSync(outputPath, output, 'utf-8');
   console.log('✅ Complete generate test script', outputPath);
 }
