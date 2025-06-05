@@ -2,8 +2,10 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = function(args, context) {
-  const { packagePath, DEFAULT_TEMPLATE_PATH, createTemplateFile, SOURCE_TEMPLATE_PATH, generateCypressTests } = context;
-  const configPath = path.join(packagePath, 'config.json');
+  const { DEFAULT_TEMPLATE_PATH, createTemplateFile, SOURCE_TEMPLATE_PATH, generateCypressTests } = context;
+  // Read config from project directory
+  let projectDir = process.cwd();
+  const configPath = path.join(projectDir, '.chathai-config.json');
   const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf-8')) : {};
   let arg1 = args[1];
   if (arg1 && arg1.startsWith('-')) {
@@ -26,7 +28,6 @@ module.exports = function(args, context) {
     'cypress/e2e';
 
   // Parse --project-dir argument
-  let projectDir = process.cwd();
   const projectDirIndex = args.indexOf('--project-dir');
   if (projectDirIndex !== -1 && args[projectDirIndex + 1]) {
     projectDir = args[projectDirIndex + 1];
@@ -92,8 +93,8 @@ module.exports = function(args, context) {
       }
       generateCypressTests(filePath, outputDir, projectDir);
     });
-  } else if (resolvedArg1 && fs.existsSync(resolvedArg1) && resolvedArg1.endsWith('.xlsx')) {
-    // Single file mode (as before)
+  } else {
+    // Single file mode
     const excelPath = resolvedArg1;
     console.log('[Chathai CLI] Single file mode, excelPath:', excelPath);
     if (!fs.existsSync(excelPath)) {
@@ -101,7 +102,5 @@ module.exports = function(args, context) {
       createTemplateFile(excelPath, SOURCE_TEMPLATE_PATH);
     }
     generateCypressTests(excelPath, outputDir, projectDir);
-  } else {
-    console.error('[Chathai CLI] Invalid argument: must be a directory or .xlsx file');
   }
 };
