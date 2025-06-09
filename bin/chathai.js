@@ -12,8 +12,8 @@ const packagePath = __dirname;
 const packageRoot = path.resolve(__dirname, '..');
 const DEFAULT_TEMPLATE_PATH = 'xlsxtemplate/chathai-templateV.1.0.0.xlsx';
 const SOURCE_TEMPLATE_PATH = path.join(packageRoot, 'xlsxtemplate/chathai-templateV.1.0.0.xlsx');
-const ELECTRON_APP_URL = 'https://github.com/K2anC2ai/chathai-ui-electron/releases/latest/download/my-electron-app-1.0.0.Setup.exe';
-const ELECTRON_APP_PATH = path.join(require('os').homedir(), '.chathai', 'my-electron-app.exe');
+const ELECTRON_APP_URL = 'https://github.com/K2anC2ai/chathai-ui/releases/latest/download/chathai-ui-1.0.0.Setup.exe';
+const ELECTRON_APP_PATH = path.join(require('os').homedir(), '.chathai', 'chathai-ui-1.0.0.Setup.exe');
 
 const context = {
   packagePath,
