@@ -3,6 +3,35 @@ const xlsx = require('xlsx');
 const { generateStepCode } = require('./commandHandler');
 const path = require('path');
 
+function readDataFile(filePath) {
+  const fileExt = path.extname(filePath).toLowerCase();
+  
+  try {
+    switch (fileExt) {
+      case '.csv':
+        const workbook = xlsx.readFile(filePath, { raw: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        return xlsx.utils.sheet_to_json(sheet);
+      
+      case '.json':
+        const jsonContent = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(jsonContent);
+      
+      case '.xlsx':
+        const xlsxWorkbook = xlsx.readFile(filePath);
+        const xlsxSheet = xlsxWorkbook.Sheets[xlsxWorkbook.SheetNames[0]];
+        return xlsx.utils.sheet_to_json(xlsxSheet);
+      
+      default:
+        console.warn(`⚠️ Unsupported file type: ${fileExt} for file: ${filePath}`);
+        return [];
+    }
+  } catch (error) {
+    console.error(`❌ Error reading file ${filePath}:`, error.message);
+    return [];
+  }
+}
+
 function generateCypressTests(excelPath, outputDir, projectDir) {
   console.log('Chathai CLI: process.cwd() =', process.cwd());
   console.log('Chathai CLI: outputDir =', outputDir);
@@ -19,6 +48,26 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = xlsx.utils.sheet_to_json(sheet);
 
+  // Read DDT data if exists
+  const ddtData = {};
+  const ddtPath = path.join(projectDir, 'xlsxtemplate/chathaiddt');
+  if (fs.existsSync(ddtPath)) {
+    const ddtFiles = fs.readdirSync(ddtPath).filter(file => 
+      file.endsWith('.csv') || 
+      file.endsWith('.json') || 
+      file.endsWith('.xlsx')
+    );
+    
+    for (const file of ddtFiles) {
+      const filePath = path.join(ddtPath, file);
+      const records = readDataFile(filePath);
+      if (records && records.length > 0) {
+        const baseName = path.basename(file, path.extname(file));
+        ddtData[baseName] = records;
+      }
+    }
+  }
+
   // Group test cases
   const grouped = {};
   data.forEach(row => {
@@ -34,45 +83,35 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
   for (const [scenario, testCases] of Object.entries(grouped)) {
     output += `describe('${scenario}', () => {\n`;
 
-    // Collect hooks at describe level
-    const describeHooks = { before: [], beforeEach: [], after: [], afterEach: [] };
+    // Add before hook for initial visit
+    output += `  before(() => {\n`;
+    output += `    cy.visit('http://localhost:3000');\n`;
+    output += `  });\n\n`;
+
+    // Add beforeEach hook for visit
+    output += `  beforeEach(() => {\n`;
+    output += `    cy.visit('http://localhost:3000');\n`;
+    output += `  });\n\n`;
 
     // Collect test cases
     for (const [testCase, steps] of Object.entries(testCases)) {
       // Split steps by hook and main test
-      const hooks = { before: [], beforeEach: [], after: [], afterEach: [] };
       const mainSteps = [];
       let onlyFlag = false, skipFlag = false;
+      let ddtFile = null;
 
       for (const step of steps) {
-        const hookRaw = (step.hook || '').toLowerCase();
         const only = (step.only || '').toLowerCase();
-        const skip = (step.only || '').toLowerCase();
-
-        // Map hook names to camelCase keys
-        const hookKeyMap = {
-          before: 'before',
-          beforeeach: 'beforeEach',
-          after: 'after',
-          aftereach: 'afterEach'
-        };
-        const hook = hookKeyMap[hookRaw];
+        const skip = (step.skip || '').toLowerCase();
+        const ddt = step['ddt_file'];
 
         // Mark only/skip for this test
         if (only === 'yes' || only === 'only') onlyFlag = true;
         if (skip === 'skip') skipFlag = true;
+        if (ddt) ddtFile = ddt;
 
-        if (hook) {
-          hooks[hook].push(step);
-        } else {
+        if (step.command !== 'visit') { // Skip visit in main steps
           mainSteps.push(step);
-        }
-      }
-
-      // Add hooks to describe-level if not already present
-      for (const hookType of ['before', 'beforeEach', 'after', 'afterEach']) {
-        if (hooks[hookType] && hooks[hookType].length > 0) {
-          describeHooks[hookType].push(...hooks[hookType]);
         }
       }
 
@@ -81,26 +120,56 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
       if (onlyFlag) itType = 'it.only';
       if (skipFlag) itType = 'it.skip';
 
-      output += `  ${itType}('${testCase}', () => {\n`;
-      let chained = false;
-      for (const step of mainSteps) {
-        const { command, value, chaining } = parseStep(step);
-        const { code, isChained } = generateStepCode({ command, value, chaining, chained });
-        output += code;
-        chained = isChained;
+      if (ddtFile && ddtData[ddtFile]) {
+        // Generate DDT test case using cy.readFile
+        output += `  ${itType}('${testCase}', () => {\n`;
+        const fileExt = Object.keys(ddtData).find(key => key === ddtFile) ? 
+          path.extname(fs.readdirSync(ddtPath).find(file => 
+            path.basename(file, path.extname(file)) === ddtFile
+          )) : '.json';
+        output += `    cy.readFile('xlsxtemplate/chathaiddt/${ddtFile}${fileExt}').then((data) => {\n`;
+        output += `      data.forEach((testData) => {\n`;
+        
+        // Process each step with proper command chaining
+        for (const step of mainSteps) {
+          const { command, value, chaining } = parseStep(step);
+          const processedValue = processValueWithTestData(value, 'testData');
+          
+          // Generate proper Cypress command with chaining
+          if (command === 'get') {
+            output += `        cy.get(${formatValue(processedValue)})\n`;
+          } else if (command === 'type') {
+            output += `          .type(\`\${testData.${processedValue}}\`)\n`;
+          } else if (command === 'click') {
+            output += `          .click()\n`;
+          } else if (command === 'contains') {
+            output += `        cy.contains(\`\${testData.${processedValue}}\`)\n`;
+          }
+        }
+        
+        output += `      });\n`;
+        output += `    });\n`;
+        output += `  });\n`;
+      } else {
+        // Generate regular test case
+        output += `  ${itType}('${testCase}', () => {\n`;
+        for (const step of mainSteps) {
+          const { command, value, chaining } = parseStep(step);
+          if (command === 'get') {
+            output += `    cy.get(${formatValue(value)})\n`;
+          } else if (command === 'type') {
+            output += `      .type(${formatValue(value)})\n`;
+          } else if (command === 'click') {
+            output += `      .click()\n`;
+          } else if (command === 'contains') {
+            output += `    cy.contains(${formatValue(value)})\n`;
+          }
+        }
+        output += `  });\n`;
       }
-      if (chained) output += '\n';
-      output += `  })\n`;
     }
 
-    // Generate hooks at describe level (after all test cases)
-    for (const hookType of ['before', 'beforeEach', 'after', 'afterEach']) {
-      if (describeHooks[hookType].length > 0) {
-        output = insertHookBlock(output, hookType, describeHooks[hookType]);
-      }
-    }
-
-    output += `})\n`;
+    output += `});\n`;
   }
 
   // Save file
@@ -111,29 +180,19 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
   console.log('✅ Complete generate test script', outputPath);
 }
 
-function insertHookBlock(output, hookType, steps) {
-  // Find the position after describe('...', () => {
-  const lines = output.split('\n');
-  let insertIdx = 1;
-  // Insert after the first line (describe)
-  let hookBlock = `  ${hookType}(() => {\n`;
-  let chained = false;
-  for (const step of steps) {
-    // Force chaining for should commands
-    const isShould = (step.command || '').trim() === 'should';
-    const { command, value, chaining } = {
-      command: step.command?.trim(),
-      value: step['value/target'],
-      chaining: isShould ? true : (step['chaining?']?.toUpperCase() === 'YES')
-    };
-    const { code, isChained } = generateStepCode({ command, value, chaining, chained });
-    hookBlock += code;
-    chained = isChained;
+function processValueWithTestData(value, testDataVar) {
+  if (!value) return value;
+  // Extract the key from ${key} format
+  const match = value.match(/\${([^}]+)}/);
+  return match ? match[1] : value;
+}
+
+function formatValue(val) {
+  if (!val) return '';
+  if (val.trim().startsWith('{') && val.trim().endsWith('}')) {
+    return val; // เช่น {enter}
   }
-  if (chained) hookBlock += '\n';
-  hookBlock += `  })\n`;
-  lines.splice(insertIdx, 0, hookBlock);
-  return lines.join('\n');
+  return `'${val.trim()}'`;
 }
 
 function parseStep(step) {

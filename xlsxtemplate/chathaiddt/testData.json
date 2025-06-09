@@ -1,0 +1,12 @@
+[
+  {
+    "task": "Buy milk",
+    "email": "test@example.com",
+    "expectedMessage": "Thank you for subscribing"
+  },
+  {
+    "task": "Read book",
+    "email": "user@example.com",
+    "expectedMessage": "Email received"
+  }
+]
