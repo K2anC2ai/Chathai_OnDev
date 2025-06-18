@@ -1,6 +1,7 @@
 const fs = require('fs');
 const xlsx = require('xlsx');
 const { generateStepCode } = require('./commandHandler');
+const { generateDDTCode, isDDTTest } = require('./ddtHandler');
 const path = require('path');
 
 function generateCypressTests(excelPath, outputDir, projectDir) {
@@ -12,6 +13,13 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
   const dir = path.isAbsolute(outputDir) ? outputDir : path.join(projectDir, outputDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // Create empty fixtures folder
+  const fixturesDir = path.join(projectDir, 'cypress', 'fixtures');
+  if (!fs.existsSync(fixturesDir)) {
+    fs.mkdirSync(fixturesDir, { recursive: true });
+    console.log('✅ Created empty fixtures folder:', fixturesDir);
   }
 
   // Read Excel
@@ -32,7 +40,25 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
   // Generate script
   let output = '';
   for (const [scenario, testCases] of Object.entries(grouped)) {
+    // Check if any test case in this scenario is a DDT test
+    const hasDDTTest = Object.values(testCases).some(steps => isDDTTest(steps));
+    
+    if (hasDDTTest) {
+      // For DDT tests, use the DDT code generator
+      const ddtSteps = Object.values(testCases)[0]; // Take the first test case
+      const ddtCode = generateDDTCode(ddtSteps);
+      if (ddtCode) {
+        output += ddtCode;
+        continue;
+      }
+    }
+
+    // For non-DDT tests, use the regular code generator
     output += `describe('${scenario}', () => {\n`;
+
+    // Add fixture import comment
+    output += `  // Import your test data from fixtures folder\n`;
+    output += `  // Example: const testData = require('../fixtures/your-data-file.json');\n\n`;
 
     // Collect hooks at describe level
     const describeHooks = { before: [], beforeEach: [], after: [], afterEach: [] };
