@@ -4,12 +4,12 @@ describe('Simple Todo App', () => {
   });
 
   it('try ddt', () => {
-    cy.fixture('pie.json').then((pie) => {
-      pie.forEach((pie) => {
-        cy.get('input[name="username"]').clear().type(pie.email);
-        cy.get('input[name="email"]').clear().type(pie.password);
+    cy.fixture('users.json').then((users) => {
+      users.forEach((user) => {
+        cy.get('input[name="username"]').clear().type(user.username);
+        cy.get('input[name="email"]').clear().type(user.password);
         cy.get('button[type="submit"]').click();
-        cy.contains(pie.expected);
+        cy.contains(user.expected);
       });
     });
   });
