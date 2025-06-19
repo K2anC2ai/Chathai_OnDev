@@ -41,6 +41,7 @@ const commands = {
   '--version': require('../src/cli/version'),
   '-v': require('../src/cli/version'),
   '--template-dir': require('../src/cli/template-dir'),
+  'export-report': require('../src/cli/export-report'),
 };
 
 if (commands[command]) {
