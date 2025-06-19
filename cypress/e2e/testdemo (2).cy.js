@@ -7,9 +7,10 @@ describe('Simple Todo App', () => {
     cy.fixture('users.json').then((users) => {
       users.forEach((user) => {
         cy.get('input[name="username"]').clear().type(user.username);
-        cy.get('input[name="email"]').clear().type(user.password);
+        cy.get('input[name="password"]').clear().type(user.password);
         cy.get('button[type="submit"]').click();
         cy.contains(user.expected);
+        cy.go('back');
       });
     });
   });

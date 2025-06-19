@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { generateStepCode } = require('./commandHandler');
 
 function generateDDTCode(steps) {
   // Find all DDT steps to identify fixture files
@@ -48,19 +49,52 @@ function generateDDTCode(steps) {
     // Add the test steps
     const testSteps = steps.filter(step => !step.hook);
     let currentSelector = '';
+    let chained = false;
+    let prevCommand = null;
 
     testSteps.forEach(step => {
-      if (step.command === 'get') {
-        currentSelector = step['value/target'];
-      } else if (step.command === 'type' && step['value/target']?.startsWith('ddt,')) {
-        const [_, __, dataPath] = step['value/target'].split(',');
-        code += `        cy.get('${currentSelector}').clear().type(${itemName}.${dataPath});\n`;
-      } else if (step.command === 'contains' && step['value/target']?.startsWith('ddt,')) {
-        const [_, __, dataPath] = step['value/target'].split(',');
+      const command = step.command?.trim();
+      const value = step['value/target'];
+      const chaining = step['chaining?']?.toUpperCase() === 'YES';
+
+      if (command === 'get') {
+        currentSelector = value;
+        code += `        cy.get('${value}')`;
+        chained = true;
+      } else if (command === 'type' && value?.startsWith('ddt,')) {
+        const [_, __, dataPath] = value.split(',');
+        // Only add .clear() if previous command was not clear with chaining
+        if (prevCommand === 'clear' && chained) {
+          code += `.type(${itemName}.${dataPath});\n`;
+        } else {
+          code += `.clear().type(${itemName}.${dataPath});\n`;
+        }
+        chained = false;
+      } else if (command === 'contains' && value?.startsWith('ddt,')) {
+        const [_, __, dataPath] = value.split(',');
         code += `        cy.contains(${itemName}.${dataPath});\n`;
-      } else if (step.command === 'click') {
-        code += `        cy.get('${currentSelector}').click();\n`;
+        chained = false;
+      } else if (command === 'clear' && chaining) {
+        code += `.clear()`;
+        chained = true;
+      } else if (command === 'click' && chaining) {
+        code += `.click();\n`;
+        chained = false;
+      } else if (command === 'go') {
+        code += `        cy.go('${value}');\n`;
+        chained = false;
+      } else {
+        // Use the general command handler for other commands
+        const { code: stepCode, isChained } = generateStepCode({ 
+          command, 
+          value, 
+          chaining, 
+          chained 
+        });
+        code += stepCode.replace(/^    /, '        '); // Adjust indentation
+        chained = isChained;
       }
+      prevCommand = command;
     });
 
     code += `      });\n`;
@@ -79,25 +113,58 @@ function generateDDTCode(steps) {
     // Add the test steps
     const testSteps = steps.filter(step => !step.hook);
     let currentSelector = '';
+    let chained = false;
+    let prevCommand = null;
 
     testSteps.forEach(step => {
-      if (step.command === 'get') {
-        currentSelector = step['value/target'];
-      } else if (step.command === 'type' && step['value/target']?.startsWith('ddt,')) {
-        const [_, fixtureFile, dataPath] = step['value/target'].split(',');
+      const command = step.command?.trim();
+      const value = step['value/target'];
+      const chaining = step['chaining?']?.toUpperCase() === 'YES';
+
+      if (command === 'get') {
+        currentSelector = value;
+        code += `        cy.get('${value}')`;
+        chained = true;
+      } else if (command === 'type' && value?.startsWith('ddt,')) {
+        const [_, fixtureFile, dataPath] = value.split(',');
         const fixtureName = path.basename(fixtureFile, path.extname(fixtureFile));
         const itemName = fixtureName.replace(/s$/, '');
-        code += `        cy.get('${currentSelector}').clear().type(${itemName}.${dataPath});\n`;
-      } else if (step.command === 'contains' && step['value/target']?.startsWith('ddt,')) {
-        const [_, fixtureFile, dataPath] = step['value/target'].split(',');
+        // Only add .clear() if previous command was not clear with chaining
+        if (prevCommand === 'clear' && chained) {
+          code += `.type(${itemName}.${dataPath});\n`;
+        } else {
+          code += `.clear().type(${itemName}.${dataPath});\n`;
+        }
+        chained = false;
+      } else if (command === 'contains' && value?.startsWith('ddt,')) {
+        const [_, fixtureFile, dataPath] = value.split(',');
         const fixtureName = path.basename(fixtureFile, path.extname(fixtureFile));
         const itemName = fixtureName.replace(/s$/, '');
         code += `        cy.get('@${fixtureName}').then((${fixtureName}) => {\n`;
         code += `          cy.contains(${fixtureName}[index].${dataPath});\n`;
         code += `        });\n`;
-      } else if (step.command === 'click') {
-        code += `        cy.get('${currentSelector}').click();\n`;
+        chained = false;
+      } else if (command === 'clear' && chaining) {
+        code += `.clear()`;
+        chained = true;
+      } else if (command === 'click' && chaining) {
+        code += `.click();\n`;
+        chained = false;
+      } else if (command === 'go') {
+        code += `        cy.go('${value}');\n`;
+        chained = false;
+      } else {
+        // Use the general command handler for other commands
+        const { code: stepCode, isChained } = generateStepCode({ 
+          command, 
+          value, 
+          chaining, 
+          chained 
+        });
+        code += stepCode.replace(/^    /, '        '); // Adjust indentation
+        chained = isChained;
       }
+      prevCommand = command;
     });
 
     code += `      });\n`;
