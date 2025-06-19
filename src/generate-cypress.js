@@ -3,6 +3,7 @@ const xlsx = require('xlsx');
 const { generateStepCode } = require('./commandHandler');
 const { generateDDTCode, isDDTTest } = require('./ddtHandler');
 const path = require('path');
+const Papa = require('papaparse');
 
 function generateCypressTests(excelPath, outputDir, projectDir) {
   console.log('Chathai CLI: process.cwd() =', process.cwd());
@@ -21,6 +22,29 @@ function generateCypressTests(excelPath, outputDir, projectDir) {
     fs.mkdirSync(fixturesDir, { recursive: true });
     console.log('✅ Created empty fixtures folder:', fixturesDir);
   }
+
+  // --- Auto-convert CSV/XLSX fixtures to JSON ---
+  // Scan for all .csv and .xlsx files in fixturesDir
+  const fixtureFiles = fs.readdirSync(fixturesDir).filter(f => f.endsWith('.csv') || f.endsWith('.xlsx'));
+  fixtureFiles.forEach(fixtureFile => {
+    const ext = path.extname(fixtureFile).toLowerCase();
+    const base = path.basename(fixtureFile, ext);
+    const jsonPath = path.join(fixturesDir, base + '.json');
+    if (fs.existsSync(jsonPath)) return; // Already converted
+    if (ext === '.csv') {
+      const csvString = fs.readFileSync(path.join(fixturesDir, fixtureFile), 'utf-8');
+      const parsed = Papa.parse(csvString, { header: true });
+      fs.writeFileSync(jsonPath, JSON.stringify(parsed.data, null, 2), 'utf-8');
+      console.log('✅ Converted CSV to JSON:', fixtureFile, '->', base + '.json');
+    } else if (ext === '.xlsx') {
+      const wb = xlsx.readFile(path.join(fixturesDir, fixtureFile));
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = xlsx.utils.sheet_to_json(ws);
+      fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), 'utf-8');
+      console.log('✅ Converted XLSX to JSON:', fixtureFile, '->', base + '.json');
+    }
+  });
+  // --- End auto-convert ---
 
   // Read Excel
   const workbook = xlsx.readFile(excelPath);

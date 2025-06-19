@@ -15,8 +15,10 @@ function generateDDTCode(steps) {
 
   // Extract unique fixture files
   const fixtureFiles = [...new Set(ddtSteps.map(step => {
-    const [_, fixtureFile] = step['value/target'].split(',');
-    return fixtureFile;
+    let [_, fixtureFile] = step['value/target'].split(',');
+    // Remove extension if present, always use .json
+    fixtureFile = fixtureFile.replace(/\.(xlsx|csv|json)$/i, '');
+    return fixtureFile + '.json';
   }))];
 
   // Generate the DDT code
@@ -62,8 +64,11 @@ function generateDDTCode(steps) {
         code += `        cy.get('${value}')`;
         chained = true;
       } else if (command === 'type' && value?.startsWith('ddt,')) {
-        const [_, __, dataPath] = value.split(',');
-        // Only add .clear() if previous command was not clear with chaining
+        let [_, fixtureFile, dataPath] = value.split(',');
+        fixtureFile = fixtureFile.replace(/\.(xlsx|csv|json)$/i, '');
+        // Always use .json for fixture
+        const fixtureName = fixtureFile;
+        const itemName = fixtureName.replace(/s$/, '');
         if (prevCommand === 'clear' && chained) {
           code += `.type(${itemName}.${dataPath});\n`;
         } else {
@@ -71,7 +76,10 @@ function generateDDTCode(steps) {
         }
         chained = false;
       } else if (command === 'contains' && value?.startsWith('ddt,')) {
-        const [_, __, dataPath] = value.split(',');
+        let [_, fixtureFile, dataPath] = value.split(',');
+        fixtureFile = fixtureFile.replace(/\.(xlsx|csv|json)$/i, '');
+        const fixtureName = fixtureFile;
+        const itemName = fixtureName.replace(/s$/, '');
         code += `        cy.contains(${itemName}.${dataPath});\n`;
         chained = false;
       } else if (command === 'clear' && chaining) {
@@ -126,10 +134,10 @@ function generateDDTCode(steps) {
         code += `        cy.get('${value}')`;
         chained = true;
       } else if (command === 'type' && value?.startsWith('ddt,')) {
-        const [_, fixtureFile, dataPath] = value.split(',');
-        const fixtureName = path.basename(fixtureFile, path.extname(fixtureFile));
+        let [_, fixtureFile, dataPath] = value.split(',');
+        fixtureFile = fixtureFile.replace(/\.(xlsx|csv|json)$/i, '');
+        const fixtureName = fixtureFile;
         const itemName = fixtureName.replace(/s$/, '');
-        // Only add .clear() if previous command was not clear with chaining
         if (prevCommand === 'clear' && chained) {
           code += `.type(${itemName}.${dataPath});\n`;
         } else {
@@ -137,8 +145,9 @@ function generateDDTCode(steps) {
         }
         chained = false;
       } else if (command === 'contains' && value?.startsWith('ddt,')) {
-        const [_, fixtureFile, dataPath] = value.split(',');
-        const fixtureName = path.basename(fixtureFile, path.extname(fixtureFile));
+        let [_, fixtureFile, dataPath] = value.split(',');
+        fixtureFile = fixtureFile.replace(/\.(xlsx|csv|json)$/i, '');
+        const fixtureName = fixtureFile;
         const itemName = fixtureName.replace(/s$/, '');
         code += `        cy.get('@${fixtureName}').then((${fixtureName}) => {\n`;
         code += `          cy.contains(${fixtureName}[index].${dataPath});\n`;
