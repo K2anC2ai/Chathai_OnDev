@@ -25,6 +25,21 @@ function generateStepCode({ command, value, chaining, chained }) {
     isChained = true;
   }
 
+  else if (command === 'contains') {
+    // Support one or two args: e.g., "button, ใช้คูปอง" or "button/ใช้คูปอง"
+    let raw = String(value || '');
+    if (raw.includes('/') && !raw.includes(',')) {
+      raw = raw.replace('/', ',');
+    }
+    const parts = raw ? smartSplit(String(raw)) : [];
+    const args = parts.length > 0
+      ? parts.map((p, idx) => idx === 0 ? forceStringArg(p) : formatArg(p)).join(', ')
+      : '';
+    // Always start a new cy.contains to avoid invalid chaining after input commands
+    code += `    cy.contains(${args})\n`;
+    isChained = true; // allow further chaining like .click()
+  }
+
   else if (command === 'should') {
     // Always format should correctly, whether chained or not
     if (chained) {
@@ -36,11 +51,13 @@ function generateStepCode({ command, value, chaining, chained }) {
 
   else if (chained && [...chainableCommands, ...traversalCommands].includes(command)) {
     code += `.${command}(${formatValue(value)})\n`;
-    if (traversalCommands.includes(command)) isChained = true;
+    // Keep chain alive after any chainable/traversal command
+    isChained = true;
   }
 
   else if (chained && ['hover', 'mouseover', 'mouseout', 'debug', 'pause'].includes(command)) {
     code += `.${command}()\n`;
+    isChained = true;
   }
 
   else {
@@ -131,10 +148,43 @@ function formatArg(arg) {
 
 function formatValue(val) {
   if (!val) return '';
-  if (val.trim().startsWith('{') && val.trim().endsWith('}')) {
-    return val; // เช่น {enter}
+  const trimmed = val.trim();
+  // Support DDT placeholders like {{field}}
+  // If the whole value is a single placeholder, return row.field
+  const singlePlaceholder = trimmed.match(/^\{\{\s*([\w.$]+)\s*\}\}$/);
+  if (singlePlaceholder) {
+    return `row.${singlePlaceholder[1]}`;
   }
-  return `'${val.trim()}'`;
+  // If contains placeholders mixed with text, use template string
+  if (trimmed.includes('{{')) {
+    const tplInner = trimmed.replace(/\{\{\s*([\w.$]+)\s*\}\}/g, '${row.$1}');
+    const escaped = tplInner.replace(/`/g, '\\`');
+    return `\`${escaped}\``;
+  }
+  // If already a template or contains interpolation for row, respect as-is
+  if ((trimmed.startsWith('`') && trimmed.endsWith('`')) || trimmed.includes('${row.')) {
+    return trimmed;
+  }
+  // Keep special key braces e.g., {enter}
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    return trimmed;
+  }
+  return `'${trimmed}'`;
+}
+
+// Force first contains argument to be a quoted string selector when not already quoted
+function forceStringArg(arg) {
+  if (!arg) return "''";
+  const trimmed = String(arg).trim();
+  // If already quoted or template/backtick, keep as-is
+  if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith('`') && trimmed.endsWith('`'))) {
+    return trimmed;
+  }
+  // If looks like a valid JS identifier (variable), still force string for selector semantics
+  const escaped = trimmed.replace(/'/g, "\\'");
+  return `'${escaped}'`;
 }
 
 module.exports = { generateStepCode };

@@ -28,6 +28,7 @@ npm install -g chathai
 - Easy to use command-line interface
 - Validate Excel file structure
 - List available templates
+- Data-Driven Testing (DDT) generation via fixtures and placeholders
 
 ## Usage
 
@@ -43,6 +44,44 @@ npx chathai generate path/to/your/excel.xlsx
 ```
 
 ### Specifying Custom Output Directory
+```bash
+npx chathai generate path/to/your/excel.xlsx --output-dir cypress/e2e
+```
+Default output directory is `cypress/e2e` (unless overridden by `--output-dir` or `.chathai-config.json`).
+
+### Generate with DDT
+```bash
+npx chathai generate path/to/your/excel.xlsx --ddt ecommerce_ddt
+# or
+npx chathai generate -ddt ecommerce_ddt
+# If you omit the name: defaults to ecommerce_ddt
+npx chathai generate -ddt
+```
+This generates tests that:
+- Load fixture `cypress/fixtures/ecommerce_ddt.json` in `beforeEach`
+- Use `{{field}}` placeholders inside Excel `value/target` cells (resolved to `row.field`)
+
+Example Excel values:
+- `type` with `value/target`: `{{email}}`
+- `type` with `value/target`: `{{phone}}`
+- `select` with `value/target`: `ไทย` or `DE`
+
+Generated pattern:
+```js
+describe('Your Scenario', () => {
+  beforeEach(() => {
+    cy.fixture('ecommerce_ddt.json').as('rows');
+  });
+
+  it('Your Test', function () {
+    const runStep = (row) => {
+      // steps here using row.*
+    };
+    this.rows.forEach(row => runStep(row));
+  });
+});
+```
+
 ```bash
 npx chathai generate path/to/your/excel.xlsx custom/output/directory
 ```
@@ -65,11 +104,27 @@ npx chathai --validate path/to/your/excel.xlsx
 ```
 This will check if the specified Excel file has a valid structure.
 
+### CLI warnings summary
+After generation, CLI prints a warnings summary if needed, for example:
+- Missing required columns (e.g., `TestScenario(des)`, `Test case(IT)`, `command`)
+- Found `{{placeholder}}` without `-ddt`
+- Suspicious `contains` value (expect two args separated by comma or slash)
+- "chaining?=YES" used without prior chain
+- Unknown hook name
+
 ### Set Default Output Directory
 ```bash
 npx chathai --output-dir custom/output/directory
 ```
 This will set the default output directory for generated test scripts.
+
+You can also set `defaultOutputDir` or a default fixture in `.chathai-config.json`:
+```json
+{
+  "defaultOutputDir": "cypress/e2e",
+  "defaultFixture": "ecommerce_ddt"
+}
+```
 
 ## Excel Template Structure
 

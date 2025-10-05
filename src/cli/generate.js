@@ -20,6 +20,11 @@ module.exports = function(args, context) {
     return null;
   }
 
+  // Helper to check boolean flag existence (supports short and long forms)
+  function hasFlag(...flags) {
+    return flags.some(f => args.includes(f));
+  }
+
   // Only use args[2] as outputDir if it exists and does not start with '-'
   let outputDir =
     getArgValue('--output-dir') ||
@@ -56,6 +61,43 @@ module.exports = function(args, context) {
   console.log('[Chathai CLI] resolvedArg1:', resolvedArg1);
   console.log('[Chathai CLI] outputDir:', outputDir);
 
+  // DDT options parsing
+  const ddtEnabled = hasFlag('--ddt', '-ddt');
+  // Allow fixture name after flag, e.g., --ddt ecommerce_ddt or -ddt ecommerce_ddt
+  let ddtFixture = null;
+  for (const flag of ['--ddt', '-ddt']) {
+    const idx = args.indexOf(flag);
+    if (idx !== -1 && args[idx + 1] && !args[idx + 1].startsWith('-')) {
+      ddtFixture = args[idx + 1];
+      break;
+    }
+  }
+  if (ddtEnabled && !ddtFixture) {
+    ddtFixture = 'ecommerce_ddt';
+  }
+  const warnings = [];
+  const generatorOptions = { ddt: ddtEnabled, fixture: ddtFixture, warnings };
+
+  // If running like: generate -ddt <fixture> (no excel path)
+  // avoid treating the fixture value (args[1]) as a template directory or excel path
+  const ddtFlagIdx = Math.max(args.indexOf('--ddt'), args.indexOf('-ddt'));
+  if (ddtEnabled && ddtFlagIdx === 0 && args[1] === ddtFixture) {
+    arg1 = null;
+  }
+
+  // If DDT is enabled and the second arg is the fixture, don't treat args[2] as outputDir
+  if (ddtEnabled) {
+    outputDir = getArgValue('--output-dir') || config.defaultOutputDir || 'cypress/e2e';
+  }
+
+  // Pre-check fixture presence when DDT is enabled
+  if (ddtEnabled && ddtFixture) {
+    const fixturesPath = path.join(projectDir, 'cypress', 'fixtures', `${ddtFixture}.json`);
+    if (!fs.existsSync(fixturesPath)) {
+      warnings.push(`Fixture not found: ${fixturesPath}`);
+    }
+  }
+
   // Batch mode: custom or default template directory
   let templateDirToUse = null;
   if (!arg1) {
@@ -91,7 +133,7 @@ module.exports = function(args, context) {
         console.log(`⚠️ Template file not found: ${filePath}`);
         createTemplateFile(filePath, SOURCE_TEMPLATE_PATH);
       }
-      generateCypressTests(filePath, outputDir, projectDir);
+      generateCypressTests(filePath, outputDir, projectDir, generatorOptions);
     });
   } else {
     // Single file mode
@@ -101,6 +143,11 @@ module.exports = function(args, context) {
       console.log('⚠️ Template file not found, creating new');
       createTemplateFile(excelPath, SOURCE_TEMPLATE_PATH);
     }
-    generateCypressTests(excelPath, outputDir, projectDir);
+    generateCypressTests(excelPath, outputDir, projectDir, generatorOptions);
+  }
+
+  if (warnings.length > 0) {
+    console.log('\n⚠️  Chathai warnings:');
+    for (const w of warnings) console.log(`- ${w}`);
   }
 };
