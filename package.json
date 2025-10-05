@@ -1,6 +1,6 @@
 {
   "name": "chathai",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "bin": {
     "chathai": "./bin/chathai.js"
   },
@@ -30,7 +30,14 @@
     "cli",
     "generator",
     "testing",
-    "framework"
+    "framework",
+    "ddt",
+    "data-driven",
+    "excel-to-cypress",
+    "xlsx",
+    "automation-testing",
+    "qa",
+    "quality-assurance"
   ],
   "repository": {
     "type": "git",
