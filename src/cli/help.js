@@ -2,6 +2,8 @@ module.exports = function() {
   console.log('Chathai CLI Help');
   console.log('\nAvailable commands:');
   console.log('  generate [excelPath] [outputDir]   Generate Cypress test scripts');
+  console.log('  run [specPath] [--results-dir=dir]  Run Cypress tests and save results');
+  console.log('  test [specPath] [--results-dir=dir] Alias for run command');
   console.log('  --template-dir [directory]         Set the default template directory');
   console.log('  --output-dir [directory]           Set the default output directory');
   console.log('  install-ui                         Install and launch the Chathai UI');
@@ -11,4 +13,8 @@ module.exports = function() {
   console.log('  --validate [excelPath]             Validate the structure of an Excel file');
   console.log('  --create-template [templateName]   Create a new Excel template');
   console.log('  --list-templates                   List all available templates');
+  console.log('\nExamples:');
+  console.log('  chathai run                         Run all tests in cypress/e2e');
+  console.log('  chathai run cypress/e2e/spec.cy.js  Run a specific spec file');
+  console.log('  chathai run --results-dir=results  Save results to custom directory');
 };

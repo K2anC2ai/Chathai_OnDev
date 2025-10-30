@@ -32,6 +32,8 @@ const commands = {
   'install-ui': require('../src/cli/install-ui'),
   'open-ui': require('../src/cli/open-ui'),
   'generate': require('../src/cli/generate'),
+  'run': require('../src/cli/run'),
+  'test': require('../src/cli/run'), // Alias for run
   '--output-dir': require('../src/cli/output-dir'),
   '--validate': require('../src/cli/validate'),
   '--create-template': require('../src/cli/create-template'),
