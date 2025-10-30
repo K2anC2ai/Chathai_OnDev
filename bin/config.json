@@ -1,3 +1,4 @@
 {
-  "defaultTemplateDir": "xlsxtemplate"
+  "defaultTemplateDir": "xlsxtemplate",
+  "defaultOutputDir": "temp"
 }

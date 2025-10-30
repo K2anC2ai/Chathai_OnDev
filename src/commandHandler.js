@@ -44,8 +44,12 @@ function generateStepCode({ command, value, chaining, chained }) {
     // Always format should correctly, whether chained or not
     if (chained) {
       code += formatShould(value);
+      // keep chain alive after should to allow subsequent chained commands like .click()
+      isChained = true;
     } else {
       code += `    cy.should${formatShould(value, true)}`;
+      // even when not previously chained, allow continuing chain semantics
+      isChained = true;
     }
   }
 
@@ -55,10 +59,7 @@ function generateStepCode({ command, value, chaining, chained }) {
     isChained = true;
   }
 
-  else if (chained && ['hover', 'mouseover', 'mouseout', 'debug', 'pause'].includes(command)) {
-    code += `.${command}()\n`;
-    isChained = true;
-  }
+  // commands like hover/mouseover/mouseout are already handled by the generic chainable path
 
   else {
     code += `    cy.${command}(${formatValue(value)})\n`;

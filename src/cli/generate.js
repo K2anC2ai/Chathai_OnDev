@@ -88,6 +88,8 @@ module.exports = function(args, context) {
   // If DDT is enabled and the second arg is the fixture, don't treat args[2] as outputDir
   if (ddtEnabled) {
     outputDir = getArgValue('--output-dir') || config.defaultOutputDir || 'cypress/e2e';
+    // re-resolve after potential override
+    outputDir = path.isAbsolute(outputDir) ? outputDir : path.join(projectDir, outputDir);
   }
 
   // Pre-check fixture presence when DDT is enabled

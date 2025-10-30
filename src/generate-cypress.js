@@ -38,28 +38,40 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
 
   // จัดกลุ่มข้อมูลเป็น Scenario -> Test case -> Steps
   const grouped = {};
+  let placeholderFound = false;
+  // Helper to get first available field value by candidate keys (case-insensitive headers)
+  function getField(row, candidates) {
+    for (const key of candidates) {
+      if (row[key] !== undefined && row[key] !== null) return row[key];
+    }
+    return '';
+  }
   data.forEach(row => {
     const scenario = row['TestScenario(des)'];
     const testCase = row['Test case(IT)'];
     const command = (row.command || '').trim();
     const value = row['value/target'];
-    const hookName = (row.hook || '').trim();
+    const hookName = String(getField(row, ['hook', 'Hook'])).trim();
 
     // เตือนเมื่อมีการใช้ชื่อ hook ที่ไม่รู้จัก
-    const validHooks = ['before', 'beforeEach', 'after', 'afterEach', '', null, undefined];
+    const validHooks = ['before', 'beforeeach', 'after', 'aftereach', ''];
     if (!validHooks.includes(hookName.toLowerCase())) {
       warn(`Unknown hook: "${hookName}" (allowed: before, beforeEach, after, afterEach)`);
     }
 
-    // เตือนเมื่อมี {{placeholder}} แต่ไม่ได้เปิดโหมด DDT
-    if (!ddt && typeof value === 'string' && /\{\{.+?\}\}/.test(value)) {
-      warn(`Found placeholder {{...}} without DDT enabled at test "${testCase}"`);
+    // ตรวจพบ placeholder
+    if (typeof value === 'string' && /\{\{.+?\}\}/.test(value)) {
+      placeholderFound = true;
+      // เตือนเมื่อมี {{placeholder}} แต่ไม่ได้เปิดโหมด DDT (อาจ auto-enable ด้านล่าง)
+      if (!ddt) {
+        warn(`Found placeholder {{...}} without DDT enabled at test "${testCase}"`);
+      }
     }
 
     // เตือนเมื่อรูปแบบ contains ไม่น่าใช้งาน (ไม่มีคั่นด้วย , หรือ /)
     if (command === 'contains' && typeof value === 'string') {
       if (!value.includes(',') && !value.includes('/')) {
-        warn(`"contains" value should be two args separated by comma or slash: got "${value}"`);
+        warn(`contains: usually 2 args (selector, text). For single-arg usage, prefix with ',' e.g., ", ${value}" or use '/' as separator.`);
       }
     }
 
@@ -68,6 +80,19 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
     grouped[scenario][testCase].push(row);
   });
 
+  // กำหนด DDT แบบอัตโนมัติ หากพบ placeholder และมี fixture มาตรฐานอยู่
+  let effectiveDdt = ddt;
+  let effectiveFixture = fixture;
+  if (!effectiveDdt && placeholderFound) {
+    const defaultFixture = 'ecommerce_ddt';
+    const defaultFixturePath = path.join(projectDir, 'cypress', 'fixtures', `${defaultFixture}.json`);
+    if (fs.existsSync(defaultFixturePath)) {
+      effectiveDdt = true;
+      effectiveFixture = defaultFixture;
+      warn(`Auto-enabled DDT with fixture "${defaultFixture}" because {{...}} placeholders were detected.`);
+    }
+  }
+
   // เริ่มสร้างสคริปต์ Cypress
   let output = '';
   for (const [scenario, testCases] of Object.entries(grouped)) {
@@ -75,9 +100,9 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
     const scenarioTitle = scenario;
     output += `describe('${scenarioTitle}', () => {\n`;
     // If DDT enabled, preload fixture rows in beforeEach
-    if (ddt && fixture) {
+    if (effectiveDdt && effectiveFixture) {
       // โหลด fixture และเก็บเป็น this.rows สำหรับใช้ในแต่ละแถวข้อมูล
-      output += `  beforeEach(() => {\n    cy.fixture('${fixture}.json').as('rows');\n  });\n`;
+      output += `  beforeEach(() => {\n    cy.fixture('${effectiveFixture}.json').as('rows');\n  });\n`;
     }
 
     // เก็บ hooks ระดับ describe (ถ้าเป็น DDT จะไม่นำมาใช้ตรงนี้)
@@ -91,9 +116,9 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
       let onlyFlag = false, skipFlag = false;
 
       for (const step of steps) {
-        const hookRaw = (step.hook || '').toLowerCase();
-        const only = (step.only || '').toLowerCase();
-        const skip = (step.only || '').toLowerCase();
+        const hookRaw = String(getField(step, ['hook', 'Hook'])).toLowerCase();
+        const only = String(getField(step, ['only', 'Only', 'ONLY'])).toLowerCase();
+        const skip = String(getField(step, ['skip', 'Skip', 'SKIP'])).toLowerCase();
 
         // map ชื่อ hook ให้เป็น key ที่ Cypress ใช้
         const hookKeyMap = {
@@ -106,7 +131,8 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
 
         // จัดการ only/skip ในระดับ it
         if (only === 'yes' || only === 'only') onlyFlag = true;
-        if (skip === 'skip') skipFlag = true;
+        // รองรับกรณีผู้ใช้ใส่คำว่า "skip" ในคอลัมน์ Only
+        if (skip === 'yes' || skip === 'skip' || only === 'skip') skipFlag = true;
 
         if (hook) {
           hooks[hook].push(step);
@@ -129,10 +155,10 @@ function generateCypressTests(excelPath, outputDir, projectDir, options = {}) {
 
       // ตั้งชื่อ it: ใช้ชื่อตาม Excel เสมอเพื่อให้ตรงกับ Test case(IT)
       const itTitle = testCase;
-      output += `  ${itType}('${itTitle}', function () {\n`;
-      if (ddt && fixture) {
+      output += `  ${itType}('${itTitle}', () => {\n`;
+      if (effectiveDdt && effectiveFixture) {
         // ในโหมด DDT: ใช้ alias @rows แบบ async เพื่อให้แน่ใจว่าโหลดเสร็จแล้ว
-        output += `    cy.get('@@rows').then((rows) => {\n`.replace('@@','@');
+        output += `    cy.get('@rows').then((rows) => {\n`;
         output += `      rows.forEach((row) => {\n`;
         // แทรก per-row hooks (beforeEach) ภายใน loop ของแต่ละ row
         if (describeHooks.beforeEach.length > 0) {
